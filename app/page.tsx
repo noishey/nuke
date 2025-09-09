@@ -6,10 +6,10 @@ import ChordProgressionAnalyzer from '../components/ChordProgressionAnalyzer';
 import AudioVisualizer from '../components/AudioVisualizer';
 
 export default function Home() {
-  const [currentNotes, setCurrentNotes] = useState<string[]>([]);
+  const [currentNotes, setCurrentNotes] = useState<{note: string, velocity: number}[]>([]);
   const [currentChord, setCurrentChord] = useState<string>('');
 
-  const handleNotePlay = (note: string, velocity: number) => {
+  const handleNotePlay = (note: string) => {
     setCurrentNotes(prev => {
       const newNotes = [...prev, note];
       // Keep only the last 6 notes for chord detection
@@ -30,8 +30,9 @@ export default function Home() {
         
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
           <FMSynth onNotePlay={handleNotePlay} />
+          // Update the ChordProgressionAnalyzer to use note names only
           <ChordProgressionAnalyzer 
-            currentNotes={currentNotes}
+            currentNotes={currentNotes.map(n => n.note)}
             onChordDetected={handleChordDetected}
           />
         </div>
@@ -44,9 +45,12 @@ export default function Home() {
           <h3 className="text-white text-xl mb-4">Current Status</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-white">
             <div>
-              <strong>Active Notes:</strong>
-              <div className="text-sm text-gray-300">
-                {currentNotes.join(', ') || 'None'}
+              // Update the display to show velocity information
+              <div>
+                <strong>Active Notes:</strong>
+                <div className="text-sm text-gray-300">
+                  {currentNotes.map(n => `${n.note} (${Math.round(n.velocity * 100)}%)`).join(', ') || 'None'}
+                </div>
               </div>
             </div>
             <div>

@@ -41,7 +41,7 @@ export default function AudioVisualizer({
         analyzerRef.current.dispose();
       }
     };
-  }, []);
+  }, [startVisualization, width, height, type]); // Add startVisualization to dependency array
 
   const startVisualization = () => {
     const canvas = canvasRef.current;
@@ -149,7 +149,7 @@ export default function AudioVisualizer({
         <label className="text-white block mb-2">Visualization Type:</label>
         <select 
           value={type} 
-          onChange={(e) => window.location.reload()} // Simple reload for demo
+          onChange={() => window.location.reload()} // Remove unused 'e' parameter
           className="bg-gray-700 text-white p-2 rounded"
         >
           <option value="frequency">Frequency Bars</option>

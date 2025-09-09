@@ -1,10 +1,26 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import * as Tone from 'tone';
 
 interface SynthProps {
   onNotePlay?: (note: string, velocity: number) => void;
+}
+
+// Define proper types for effect parameters
+interface EffectParams {
+  [key: string]: number | string;
+}
+
+// Define proper types for synth parameters
+interface SynthWithParams {
+  harmonicity?: { value: number };
+  modulationIndex?: { value: number };
+  detune?: { value: number };
+  filter?: {
+    frequency: { value: number };
+    Q: { value: number };
+  };
 }
 
 type SynthType = 
@@ -49,7 +65,7 @@ export default function SynthComponent({ onNotePlay }: SynthProps) {
   const [midiAccess, setMidiAccess] = useState<WebMidi.MIDIAccess | null>(null);
   const [selectedSynth, setSelectedSynth] = useState<SynthType>('fmsynth');
   const [selectedEffect, setSelectedEffect] = useState<EffectType>('none');
-  const [effectParams, setEffectParams] = useState<any>({});
+  // Remove unused effectParams and setEffectParams
 
   const synthOptions = [
     { value: 'fmsynth', label: 'FM Synth' },
@@ -198,7 +214,7 @@ export default function SynthComponent({ onNotePlay }: SynthProps) {
         effectRef.current.dispose();
       }
     };
-  }, []);
+  }, [selectedSynth]); // Add selectedSynth dependency
 
   // MIDI Setup
   useEffect(() => {
@@ -216,7 +232,7 @@ export default function SynthComponent({ onNotePlay }: SynthProps) {
     };
 
     setupMIDI();
-  }, []);
+  }, [handleMIDIMessage]); // Add handleMIDIMessage dependency
 
   const updateSynth = (synthType: SynthType) => {
     if (synthRef.current) {
@@ -310,7 +326,8 @@ export default function SynthComponent({ onNotePlay }: SynthProps) {
     setSelectedEffect(effectType);
   };
 
-  const handleMIDIMessage = (message: WebMidi.MIDIMessageEvent) => {
+  // Memoize handleMIDIMessage to fix dependency issue
+  const handleMIDIMessage = useCallback((message: WebMidi.MIDIMessageEvent) => {
     const [command, note, velocity] = message.data;
     
     if (command === 144 && velocity > 0) { // Note on
@@ -321,7 +338,48 @@ export default function SynthComponent({ onNotePlay }: SynthProps) {
       const noteName = Tone.Frequency(note, 'midi').toNote();
       stopNote(noteName);
     }
-  };
+  }, [onNotePlay]);
+
+  useEffect(() => {
+    const initializeSynth = async () => {
+      await Tone.start();
+      
+      // Create initial synthesizer
+      synthRef.current = createSynth(selectedSynth);
+      synthRef.current.toDestination();
+      
+      setIsInitialized(true);
+    };
+
+    initializeSynth();
+
+    return () => {
+      if (synthRef.current) {
+        synthRef.current.dispose();
+      }
+      if (effectRef.current) {
+        effectRef.current.dispose();
+      }
+    };
+  }, [selectedSynth]); // Add selectedSynth dependency
+
+  // MIDI Setup
+  useEffect(() => {
+    const setupMIDI = async () => {
+      try {
+        const access = await navigator.requestMIDIAccess();
+        setMidiAccess(access);
+        
+        access.inputs.forEach((input) => {
+          input.onmidimessage = handleMIDIMessage;
+        });
+      } catch (error) {
+        console.log('MIDI access denied:', error);
+      }
+    };
+
+    setupMIDI();
+  }, [handleMIDIMessage]); // Add handleMIDIMessage dependency
 
   const playNote = (note: string, velocity: number = 0.8) => {
     if (synthRef.current && isInitialized) {
@@ -333,7 +391,8 @@ export default function SynthComponent({ onNotePlay }: SynthProps) {
     }
   };
 
-  const stopNote = (note: string) => {
+  // Fix unused parameter in stopNote
+  const stopNote = () => {
     if (synthRef.current && isInitialized) {
       if ('triggerRelease' in synthRef.current) {
         synthRef.current.triggerRelease();
@@ -346,40 +405,28 @@ export default function SynthComponent({ onNotePlay }: SynthProps) {
       if ('triggerRelease' in synthRef.current) {
         synthRef.current.triggerRelease();
       } else if ('releaseAll' in synthRef.current) {
-        (synthRef.current as any).releaseAll();
+        // Type assertion with proper interface
+        (synthRef.current as Tone.PolySynth).releaseAll();
       }
     }
   };
 
-  const playChord = (notes: string[]) => {
-    if (synthRef.current && 'triggerAttackRelease' in synthRef.current) {
-      // For PolySynth, play all notes simultaneously
-      if (selectedSynth === 'polysynth') {
-        (synthRef.current as Tone.PolySynth).triggerAttackRelease(notes, '2n');
-      } else {
-        // For other synths, arpeggiate
-        notes.forEach((note, index) => {
-          setTimeout(() => playNote(note), index * 50);
-        });
-      }
-    } else {
-      // Fallback for synths that don't support chords
-      notes.forEach((note, index) => {
-        setTimeout(() => playNote(note), index * 50);
-      });
-    }
-  };
-
+  // Fix updateEffectParam with proper typing
   const updateEffectParam = (param: string, value: number) => {
-    if (effectRef.current && (effectRef.current as any)[param]) {
-      if ((effectRef.current as any)[param].value !== undefined) {
-        (effectRef.current as any)[param].value = value;
-      } else {
-        (effectRef.current as any)[param] = value;
+    if (effectRef.current) {
+      const effect = effectRef.current as Record<string, unknown>;
+      if (effect[param]) {
+        const paramObj = effect[param] as { value?: number };
+        if (paramObj && typeof paramObj === 'object' && 'value' in paramObj) {
+          paramObj.value = value;
+        } else {
+          effect[param] = value;
+        }
       }
     }
   };
 
+  // Fix synth parameter updates with proper typing
   const renderSynthControls = () => {
     switch (selectedSynth) {
       case 'fmsynth':
@@ -395,7 +442,10 @@ export default function SynthComponent({ onNotePlay }: SynthProps) {
                 defaultValue="3"
                 onChange={(e) => {
                   if (synthRef.current && 'harmonicity' in synthRef.current) {
-                    (synthRef.current as any).harmonicity.value = parseFloat(e.target.value);
+                    const synth = synthRef.current as SynthWithParams;
+                    if (synth.harmonicity) {
+                      synth.harmonicity.value = parseFloat(e.target.value);
+                    }
                   }
                 }}
                 className="w-full"
@@ -411,7 +461,10 @@ export default function SynthComponent({ onNotePlay }: SynthProps) {
                 defaultValue="10"
                 onChange={(e) => {
                   if (synthRef.current && 'modulationIndex' in synthRef.current) {
-                    (synthRef.current as any).modulationIndex.value = parseFloat(e.target.value);
+                    const synth = synthRef.current as SynthWithParams;
+                    if (synth.modulationIndex) {
+                      synth.modulationIndex.value = parseFloat(e.target.value);
+                    }
                   }
                 }}
                 className="w-full"
@@ -432,7 +485,10 @@ export default function SynthComponent({ onNotePlay }: SynthProps) {
                 defaultValue="2"
                 onChange={(e) => {
                   if (synthRef.current && 'harmonicity' in synthRef.current) {
-                    (synthRef.current as any).harmonicity.value = parseFloat(e.target.value);
+                    const synth = synthRef.current as SynthWithParams;
+                    if (synth.harmonicity) {
+                      synth.harmonicity.value = parseFloat(e.target.value);
+                    }
                   }
                 }}
                 className="w-full"
@@ -448,7 +504,10 @@ export default function SynthComponent({ onNotePlay }: SynthProps) {
                 defaultValue="0"
                 onChange={(e) => {
                   if (synthRef.current && 'detune' in synthRef.current) {
-                    (synthRef.current as any).detune.value = parseFloat(e.target.value);
+                    const synth = synthRef.current as SynthWithParams;
+                    if (synth.detune) {
+                      synth.detune.value = parseFloat(e.target.value);
+                    }
                   }
                 }}
                 className="w-full"
@@ -469,7 +528,10 @@ export default function SynthComponent({ onNotePlay }: SynthProps) {
                 defaultValue="1000"
                 onChange={(e) => {
                   if (synthRef.current && 'filter' in synthRef.current) {
-                    (synthRef.current as any).filter.frequency.value = parseFloat(e.target.value);
+                    const synth = synthRef.current as SynthWithParams;
+                    if (synth.filter) {
+                      synth.filter.frequency.value = parseFloat(e.target.value);
+                    }
                   }
                 }}
                 className="w-full"
@@ -485,7 +547,10 @@ export default function SynthComponent({ onNotePlay }: SynthProps) {
                 defaultValue="1"
                 onChange={(e) => {
                   if (synthRef.current && 'filter' in synthRef.current) {
-                    (synthRef.current as any).filter.Q.value = parseFloat(e.target.value);
+                    const synth = synthRef.current as SynthWithParams;
+                    if (synth.filter) {
+                      synth.filter.Q.value = parseFloat(e.target.value);
+                    }
                   }
                 }}
                 className="w-full"
