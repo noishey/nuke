@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import FMSynth from '../components/FMSynth';
+import FMSynth from '../components/Synth';
 import ChordProgressionAnalyzer from '../components/ChordProgressionAnalyzer';
 import AudioVisualizer from '../components/AudioVisualizer';
 
