@@ -30,7 +30,7 @@ export default function Home() {
       <main className="min-h-screen bg-gray-900 p-8">
         <div className="max-w-7xl mx-auto">
           <h1 className="text-4xl font-bold text-white mb-8 text-center">
-            Chord Visualizer & Progression Explorer
+            NUKE - Audio Synthesizer & Chord Explorer
           </h1>
           <div className="text-white text-center">Loading audio components...</div>
         </div>
@@ -39,49 +39,70 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen bg-gray-900 p-8">
+    <main className="min-h-screen bg-gray-900 p-4">
       <div className="max-w-7xl mx-auto">
-        <h1 className="text-4xl font-bold text-white mb-8 text-center">
-          Chord Visualizer & Progression Explorer
+        <h1 className="text-3xl font-bold text-white mb-6 text-center">
+          NUKE - Audio Synthesizer & Chord Explorer
         </h1>
         
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-          <SynthComponent onNotePlay={handleNotePlay} />
-          <ChordProgressionAnalyzer 
-            currentNotes={currentNotes}
-            onChordDetected={handleChordDetected}
-          />
-        </div>
-        
-        <div className="mb-8">
-          <AudioVisualizer width={800} height={300} type="frequency" />
-        </div>
-        
-        <div className="bg-gray-800 p-6 rounded-lg">
-          <h3 className="text-white text-xl mb-4">Current Status</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-white">
-            <div>
-              <div>
-                <strong>Active Notes:</strong>
-                <div className="text-sm text-gray-300">
-                  {currentNotes.join(', ') || 'None'}
+        {/* Single Unified Widget Container */}
+        <div className="bg-gray-800 rounded-xl p-6 shadow-2xl border border-gray-700">
+          {/* Header with Status */}
+          <div className="mb-6 pb-4 border-b border-gray-600">
+            <div className="flex flex-wrap justify-between items-center gap-4">
+              <div className="flex items-center gap-6 text-sm">
+                <div className="text-white">
+                  <span className="font-semibold">Notes:</span>
+                  <span className="ml-2 text-blue-400">
+                    {currentNotes.join(', ') || 'None'}
+                  </span>
+                </div>
+                <div className="text-white">
+                  <span className="font-semibold">Chord:</span>
+                  <span className="ml-2 text-green-400">
+                    {currentChord || 'None detected'}
+                  </span>
                 </div>
               </div>
-            </div>
-            <div>
-              <div>
-                <strong>Current Chord:</strong>
-                <div className="text-sm text-gray-300">
-                  {currentChord || 'None detected'}
-                </div>
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                <span className="text-green-400 text-sm font-medium">Ready</span>
               </div>
             </div>
-            <div>
-              <div>
-                <strong>Status:</strong>
-                <div className="text-sm text-green-400">
-                  Ready
-                </div>
+          </div>
+
+          {/* Main Content Grid */}
+          <div className="space-y-6">
+            {/* Top Row: Synth and Chord Analyzer */}
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+              <div className="bg-gray-750 rounded-lg p-4 border border-gray-600">
+                <h3 className="text-white text-lg font-semibold mb-4 flex items-center">
+                  <span className="w-3 h-3 bg-blue-500 rounded-full mr-2"></span>
+                  Synthesizer
+                </h3>
+                <SynthComponent onNotePlay={handleNotePlay} />
+              </div>
+              
+              <div className="bg-gray-750 rounded-lg p-4 border border-gray-600">
+                <h3 className="text-white text-lg font-semibold mb-4 flex items-center">
+                  <span className="w-3 h-3 bg-purple-500 rounded-full mr-2"></span>
+                  Chord Analysis
+                </h3>
+                <ChordProgressionAnalyzer 
+                  currentNotes={currentNotes}
+                  onChordDetected={handleChordDetected}
+                />
+              </div>
+            </div>
+
+            {/* Bottom Row: Audio Visualizer */}
+            <div className="bg-gray-750 rounded-lg p-4 border border-gray-600">
+              <h3 className="text-white text-lg font-semibold mb-4 flex items-center">
+                <span className="w-3 h-3 bg-green-500 rounded-full mr-2"></span>
+                Audio Visualizer
+              </h3>
+              <div className="flex justify-center">
+                <AudioVisualizer width={800} height={200} type="frequency" />
               </div>
             </div>
           </div>
