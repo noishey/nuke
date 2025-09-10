@@ -14,7 +14,7 @@ export default function AudioVisualizer({
 }: AudioVisualizerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const analyzerRef = useRef<Tone.Analyser | null>(null);
-  const animationRef = useRef<number>();
+  const animationRef = useRef<number | null>(null);
 
   useEffect(() => {
     const setupAnalyzer = async () => {

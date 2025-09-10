@@ -58,13 +58,13 @@ export default function SynthComponent({ onNotePlay }: SynthProps) {
   const [activeKeys, setActiveKeys] = useState<Set<string>>(new Set());
   
   // MIDI state
-  const [midiAccess, setMidiAccess] = useState<WebMidi.MIDIAccess | null>(null);
-  const [midiDevices, setMidiDevices] = useState<WebMidi.MIDIInput[]>([]);
+  const [midiAccess, setMidiAccess] = useState<typeof navigator.requestMIDIAccess extends () => Promise<infer T> ? T : null>();
+  const [midiDevices, setMidiDevices] = useState<MIDIInput[]>([]);
   const [selectedMidiDevice, setSelectedMidiDevice] = useState<string>('');
   const [midiStatus, setMidiStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
 
-  const synthRef = useRef<any>(null);
-  const effectRef = useRef<any>(null);
+  const synthRef = useRef<Tone.Synth>(null);
+  const effectRef = useRef<Tone.ToneAudioNode | null>(null);
   const activeNotesRef = useRef<Map<number, string>>(new Map());
 
   useEffect(() => {
@@ -119,9 +119,11 @@ export default function SynthComponent({ onNotePlay }: SynthProps) {
   }, []);
 
   // Setup MIDI input handling
-  const setupMIDIInput = useCallback((input: WebMidi.MIDIInput) => {
+  const setupMIDIInput = useCallback((input: MIDIInput) => {
     input.onmidimessage = (event) => {
-      const [command, note, velocity] = event.data;
+      const command = event.data?.[0] ?? 0;
+      const note = event.data?.[1] ?? 0;
+      const velocity = event.data?.[2] ?? 0;
       const channel = command & 0xf;
       const messageType = command & 0xf0;
 
@@ -203,8 +205,11 @@ export default function SynthComponent({ onNotePlay }: SynthProps) {
           await Tone.start();
         }
         
-        synthRef.current = createSynth(selectedSynth);
-        synthRef.current.toDestination();
+        // Create and connect synth
+        synthRef.current = createSynth(selectedSynth) as any;
+        if (synthRef.current) {
+          synthRef.current.toDestination();
+        }
         setIsInitialized(true);
         
         // Initialize MIDI after audio is ready
