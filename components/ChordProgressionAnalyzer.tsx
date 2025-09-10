@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Chord, Scale, Progression, Key } from 'tonal';
 
 interface ChordProgressionAnalyzerProps {
@@ -14,30 +14,12 @@ export default function ChordProgressionAnalyzer({
   onChordDetected, 
   onProgressionSuggestion 
 }: ChordProgressionAnalyzerProps) {
-  const [currentChord, setCurrentChord] = useState<string>('');
   const [progression, setProgression] = useState<string[]>([]);
-  const [key, setKey] = useState<string>('C');
   const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [key, setKey] = useState<string>('C');
+  const [currentChord, setCurrentChord] = useState<string>('');
 
-  useEffect(() => {
-    if (currentNotes.length >= 2) {
-      const detectedChord = Chord.detect(currentNotes);
-      if (detectedChord.length > 0) {
-        const chord = detectedChord[0];
-        setCurrentChord(chord);
-        onChordDetected?.(chord);
-        
-        // Add to progression if it's different from the last chord
-        if (progression[progression.length - 1] !== chord) {
-          const newProgression = [...progression, chord].slice(-8); // Keep last 8 chords
-          setProgression(newProgression);
-          generateSuggestions(newProgression);
-        }
-      }
-    }
-  }, [currentNotes]);
-
-  const generateSuggestions = (currentProgression: string[]) => {
+  const generateSuggestions = useCallback((currentProgression: string[]) => {
     if (currentProgression.length === 0) return;
     
     const keyScale = Scale.get(`${key} major`);
@@ -71,23 +53,43 @@ export default function ChordProgressionAnalyzer({
     
     setSuggestions(filteredSuggestions);
     onProgressionSuggestion?.(filteredSuggestions);
+  }, [key, onProgressionSuggestion]);
+
+  // Fixed: Added missing dependencies to useEffect
+  useEffect(() => {
+    if (currentNotes.length >= 2) {
+      const detectedChord = Chord.detect(currentNotes);
+      if (detectedChord.length > 0) {
+        const chord = detectedChord[0];
+        setCurrentChord(chord);
+        onChordDetected?.(chord);
+        
+        if (progression[progression.length - 1] !== chord) {
+          const newProgression = [...progression, chord].slice(-8);
+          setProgression(newProgression);
+          generateSuggestions(newProgression);
+        }
+      }
+    }
+  }, [currentNotes, onChordDetected, progression, generateSuggestions]);
+
+  const clearProgression = () => {
+    setProgression([]);
+    setCurrentChord('');
+    setSuggestions([]);
   };
 
   const addChordToProgression = (chord: string) => {
     const newProgression = [...progression, chord].slice(-8);
     setProgression(newProgression);
+    setCurrentChord(chord);
     generateSuggestions(newProgression);
-  };
-
-  const clearProgression = () => {
-    setProgression([]);
-    setSuggestions([]);
+    onChordDetected?.(chord);
   };
 
   const analyzeKey = () => {
     if (progression.length >= 3) {
-      // Simple key detection based on chord progression
-      const possibleKeys = ['C', 'G', 'D', 'A', 'E', 'B', 'F#', 'F', 'Bb', 'Eb', 'Ab', 'Db'];
+      // Fixed: Removed unused 'possibleKeys' variable
       // This is a simplified key detection - in a real app, you'd use more sophisticated analysis
       const detectedKey = Key.majorKey(progression[0]);
       if (detectedKey.tonic) {

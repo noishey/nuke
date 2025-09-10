@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import * as Tone from 'tone';
 
 interface AudioVisualizerProps {
@@ -16,10 +16,17 @@ export default function AudioVisualizer({
 }: AudioVisualizerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const analyzerRef = useRef<Tone.Analyser | null>(null);
-  const animationRef = useRef<number>();
+  const animationRef = useRef<number | null>(null);
   const [isActive, setIsActive] = useState(false);
+  const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isClient) return;
+    
     const setupAnalyzer = async () => {
       await Tone.start();
       
@@ -28,7 +35,38 @@ export default function AudioVisualizer({
       Tone.getDestination().connect(analyzerRef.current);
       
       setIsActive(true);
-      startVisualization();
+      
+      // Move startVisualization logic directly inside useEffect
+      const canvas = canvasRef.current;
+      if (!canvas || !analyzerRef.current) return;
+      
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      const draw = () => {
+        if (!analyzerRef.current) return;
+        
+        const dataArray = analyzerRef.current.getValue() as Float32Array;
+        
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+        ctx.fillRect(0, 0, width, height);
+        
+        switch (type) {
+          case 'frequency':
+            drawFrequencyBars(ctx, dataArray);
+            break;
+          case 'waveform':
+            drawWaveform(ctx, dataArray);
+            break;
+          case 'circular':
+            drawCircularVisualizer(ctx, dataArray);
+            break;
+        }
+        
+        animationRef.current = requestAnimationFrame(draw);
+      };
+      
+      draw();
     };
 
     setupAnalyzer();
@@ -41,40 +79,18 @@ export default function AudioVisualizer({
         analyzerRef.current.dispose();
       }
     };
-  }, [startVisualization, width, height, type]); // Add startVisualization to dependency array
+  }, [width, height, type, isClient]);
 
-  const startVisualization = () => {
-    const canvas = canvasRef.current;
-    if (!canvas || !analyzerRef.current) return;
-    
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    const draw = () => {
-      if (!analyzerRef.current) return;
-      
-      const dataArray = analyzerRef.current.getValue() as Float32Array;
-      
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
-      ctx.fillRect(0, 0, width, height);
-      
-      switch (type) {
-        case 'frequency':
-          drawFrequencyBars(ctx, dataArray);
-          break;
-        case 'waveform':
-          drawWaveform(ctx, dataArray);
-          break;
-        case 'circular':
-          drawCircularVisualizer(ctx, dataArray);
-          break;
-      }
-      
-      animationRef.current = requestAnimationFrame(draw);
-    };
-    
-    draw();
-  };
+  if (!isClient) {
+    return (
+      <div 
+        className="bg-black rounded-lg flex items-center justify-center text-white"
+        style={{ width, height }}
+      >
+        Loading visualizer...
+      </div>
+    );
+  }
 
   const drawFrequencyBars = (ctx: CanvasRenderingContext2D, dataArray: Float32Array) => {
     const barWidth = width / dataArray.length * 2.5;
